@@ -1,0 +1,9 @@
+faster-whisper==1.1.1
+numpy==2.2.6
+openai==1.93.0
+opencv-python-headless==4.11.0.86
+PyYAML==6.0.2
+pytesseract==0.3.13
+rapidfuzz==3.13.0
+streamlit==1.45.1
+pytest==8.4.1

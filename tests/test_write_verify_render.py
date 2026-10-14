@@ -29,6 +29,14 @@ def test_command_provenance_and_hallucination() -> None:
     assert results[2].status == "unverified"
 
 
+def test_exact_fuzzy_and_both_evidence_matches() -> None:
+    """Exact containment, RapidFuzz partial matching, and dual-source status work."""
+    step = Step("Commands", "", ["git status", "git commit -m save"])
+    results = verify_commands(step, "git status", "git statu\ngit commit -m save", 90)
+    assert results[0].status == "verified_both"
+    assert results[1].status == "verified_screen"
+
+
 def test_render_marks_unverified_command() -> None:
     """Unverified commands should receive a visible warning and summary count."""
     markdown = render_markdown([(Step("Run", "Run it", ["npm install fake"]),

@@ -1,0 +1,26 @@
+extract:
+  ffmpeg_path: ffmpeg
+  frame_interval_seconds: 2
+  output_dir: outputs
+dedupe:
+  difference_threshold: 8.0
+transcribe:
+  model: base
+  compute_type: int8
+  device: cpu
+  language: en
+ocr:
+  tesseract_cmd: ""
+align:
+  window_seconds: 45
+verify:
+  fuzzy_threshold: 90
+llm:
+  base_url: "http://localhost:11434/v1"
+  model: "qwen2.5:3b"
+  api_key_env: SCREEN2TUTORIAL_API_KEY
+  api_key: ""
+  temperature: 0.2
+  offline_mock: true
+cache:
+  enabled: true

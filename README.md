@@ -10,6 +10,23 @@ The supported scope is one English-speaking narrator, one terminal/IDE
 recording, and Markdown output. The application has a Streamlit upload page and
 the CLI `python -m pipeline.run path/to/video.mp4`.
 
+## Example output
+
+Excerpt from a generated guide for a CSS `random()` tutorial:
+
+> The author demonstrates how to generate random values directly within CSS
+> to avoid hard-coding manual values or using JavaScript for simple visual
+> effects.
+
+```css
+particle {
+  scale: random(1px, 7px);
+}
+```
+
+Generated code is included when it matches text recognized on screen. Review
+the extracted snippet against the recording before relying on it.
+
 ## Who it's for and why open AI
 
 Screen2Tutorial is aimed at independent coding educators, tutorial creators,
@@ -105,28 +122,28 @@ faster-whisper model downloads, or a network service.
 - Windows paths are accepted as ordinary config strings. ffmpeg is called with
   argument lists, not a shell, so spaces in paths are supported.
 - Windows are fixed-duration buckets starting at multiples of the configured
-  interval. Empty buckets are omitted; OCR text is de-duplicated case-insensitively
-  within each bucket.
+  interval (30 seconds by default). Empty buckets are omitted; OCR text is
+  de-duplicated case-insensitively within each bucket.
 - The cache is per input content hash and stage settings, stored as readable
   JSON. A changed input naturally uses a new cache directory.
 - Fuzzy matching uses RapidFuzz `partial_ratio` at the configured threshold.
   A command may be verified by speech, by OCR, or by both; no evidence means
   `unverified`.
-- The default endpoint is a local OpenAI-compatible URL and offline mock mode is
-  enabled. Provider-specific URL or key details are not assumed.
+- The configured endpoint is the local Ollama OpenAI-compatible URL, with
+  `gemma4:cloud` selected and offline mock mode disabled. Other compatible
+  models and endpoints can be selected in `config.yaml`.
 
 ## Limitations
 
 - The supported scope is short, single-speaker, English terminal/IDE footage.
 - The tool does not identify speakers, execute commands, validate software
   behavior, or guarantee that OCR/transcription is accurate.
-- The fixed 45-second window can combine unrelated actions or split one action.
-- The default local LLM endpoint must be running and have the configured model
-  available when offline mock mode is disabled.
+- Fixed-duration windows can combine unrelated actions or split one action.
+- Ollama must be running and signed in for the configured Gemma Cloud model;
+  cloud writing also requires an internet connection.
 - Performance depends strongly on CPU, video resolution, number of changed
-  frames, Tesseract installation, and model endpoint. No representative
-  5–10-minute recording was available in this build workspace, so per-stage
-  runtime on the specified 8 GB/i3 target is not measured here.
+  frames, Tesseract installation, and model endpoint. Per-stage runtime on the
+  target 8 GB CPU-only laptop has not been benchmarked.
 
 ## Future work
 

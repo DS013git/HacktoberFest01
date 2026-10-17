@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,10 +20,11 @@ from pipeline.ocr import OCRFrame, ocr_frames, ocr_to_json
 from pipeline.render import render_markdown
 from pipeline.transcribe import Segment, segments_to_json, transcribe_audio
 from pipeline.verify import CheckedCommand, verify_commands
-from pipeline.write import Step, step_to_json, write_step
+from pipeline.write import CodeBlock, Step, step_to_json, write_step
 
 
 LOGGER = logging.getLogger("screen2tutorial")
+WRITE_SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -211,7 +213,11 @@ def run_pipeline(
 
     report("Writing tutorial steps")
     llm_config = config.get("llm", {})
-    write_signature = _signature([aligned_data, {key: value for key, value in llm_config.items() if key not in {"api_key"}}])
+    write_signature = _signature([
+        WRITE_SCHEMA_VERSION,
+        aligned_data,
+        {key: value for key, value in llm_config.items() if key not in {"api_key"}},
+    ])
     write_cache = job_dir / "write.json"
     write_value = _read_cache(write_cache, write_signature, cache_enabled)
 
@@ -223,7 +229,19 @@ def run_pipeline(
     if write_value is not None:
         _cache_hit("write", timings)
     _write_cache(write_cache, write_signature, steps_data, cache_enabled)
-    steps = [Step(str(row["title"]), str(row["explanation"]), list(row["commands"])) for row in steps_data]
+    steps = [
+        Step(
+            str(row["title"]),
+            str(row["explanation"]),
+            list(row["commands"]),
+            [
+                CodeBlock(str(block.get("language", "text")), str(block.get("code", "")))
+                for block in row.get("code_blocks", [])
+                if isinstance(block, dict) and block.get("code")
+            ],
+        )
+        for row in steps_data
+    ]
 
     report("Verifying commands")
     verify_signature = _signature([steps_data, [window.transcript for window in windows], [window.screen_text for window in windows], config.get("verify", {})])
@@ -244,11 +262,14 @@ def run_pipeline(
     checks = [[CheckedCommand(str(item["command"]), str(item["status"])) for item in group] for group in checks_data]
 
     report("Rendering Markdown")
-    render_signature = _signature([steps_data, checks_data])
+    tutorial_title = re.sub(r"\s*\[[A-Za-z0-9_-]{8,}\]\s*$", "", source.stem).strip()
+    render_signature = _signature([steps_data, checks_data, tutorial_title])
     render_cache = job_dir / "render.json"
     render_value = _read_cache(render_cache, render_signature, cache_enabled)
     if render_value is None:
-        markdown = _timed("render", lambda: render_markdown(list(zip(steps, checks))), timings)
+        markdown = _timed(
+            "render", lambda: render_markdown(list(zip(steps, checks)), tutorial_title), timings
+        )
         render_value = {"markdown": markdown}
     else:
         markdown = str(render_value["markdown"])

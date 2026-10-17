@@ -1,13 +1,31 @@
 # screen2tutorial
 
-Turn a 5–10 minute English terminal or IDE recording into a step-by-step
+Turn a 5–10 minute English coding recording into a code-backed, step-by-step
 Markdown tutorial. Speech transcription and screen OCR are aligned by time.
-Each generated command is compared with both evidence sources; commands found
+The writing model organizes the explanation and extracts visible code examples;
+each shell command is compared with both evidence sources, and commands found
 in neither are marked **UNVERIFIED**.
 
 The supported scope is one English-speaking narrator, one terminal/IDE
 recording, and Markdown output. The application has a Streamlit upload page and
 the CLI `python -m pipeline.run path/to/video.mp4`.
+
+## Who it's for and why open AI
+
+Screen2Tutorial is aimed at independent coding educators, tutorial creators,
+and developer-relations teams who spend time turning coding demos into written
+guides. The product hypothesis is that creators or teams would pay to reduce
+that editing work while keeping a reviewable transcript of where the tutorial
+text and code came from. That willingness to pay still needs validation with
+real users.
+
+Open components are part of the workflow: faster-whisper transcribes locally,
+Tesseract reads the frames locally, and the tutorial writer is an open-weight
+model served by Ollama. The model endpoint and model name are configuration
+values, so a different compatible model can be selected without changing the
+pipeline. The current Gemma Cloud setting sends the transcript and OCR text to
+Ollama for writing; choose a local model endpoint when the recording must stay
+on the computer.
 
 ## Install on Windows
 
@@ -37,19 +55,18 @@ outside pip.
 All adjustable settings are in `config.yaml`: ffmpeg path, frame interval,
 frame-difference threshold, Whisper model/runtime, Tesseract path, alignment
 window size, fuzzy verification threshold, LLM endpoint/model, temperature,
-offline mock mode, and disk caching.
+offline mock mode, and disk caching. The current configuration uses the local
+Ollama OpenAI-compatible endpoint with `gemma4:cloud`; sign in to Ollama before
+generating with that cloud model. The placeholder `api_key: "ollama"` is
+required by the OpenAI client but ignored by the local Ollama endpoint. If you
+call `https://ollama.com/v1` directly, use a server-side API key instead.
 
-By default, `llm.offline_mock: true` returns a canned empty-command step. This
-lets the UI, CLI and tests run without credentials or network access. For real
-generation, set `llm.offline_mock: false`, set `llm.base_url` and `llm.model` to
-an OpenAI-compatible chat-completions endpoint and open-weight model, and
-provide the key using the environment variable named by `llm.api_key_env`
-(default `SCREEN2TUTORIAL_API_KEY`). The key can alternatively be supplied in
-`llm.api_key` in the local `config.yaml`; never commit a real key. This project
-does not call proprietary OpenAI or Anthropic models. The endpoint URL,
-authentication requirements, model identifier, and compatibility are provider
-configuration values; consult the chosen provider's documentation. A local
-Ollama-compatible endpoint can be used by changing the config values.
+`llm.offline_mock: true` returns a canned step for UI-only development. For
+real generation, set `llm.offline_mock: false`, choose an OpenAI-compatible
+chat-completions endpoint and open-weight model, and configure authentication
+for that endpoint. Direct API keys are read from the environment variable named
+by `llm.api_key_env` (default `SCREEN2TUTORIAL_API_KEY`); never commit a real
+key. This project does not call proprietary OpenAI or Anthropic models.
 
 ## Pipeline and verification
 
@@ -59,11 +76,14 @@ Ollama-compatible endpoint can be used by changing the config values.
 2. `pipeline.transcribe` runs faster-whisper on CPU. `pipeline.ocr` runs
    Tesseract on retained frames and removes blank/noise lines.
 3. `pipeline.align` groups speech and unique OCR lines in fixed time windows.
-4. `pipeline.write` requests strict JSON for one step per window. Invalid JSON
-   is retried once, then the step falls back to its transcript and no commands.
+4. `pipeline.write` requests tutorial prose, screen-visible code blocks, and
+   evidenced shell commands as strict JSON for each window. Code blocks with too
+   little overlap with the OCR evidence are discarded. Invalid JSON is retried
+   once, then the step falls back to its transcript.
 5. `pipeline.verify` normalizes whitespace, quotes, and shell prompts, checks
    exact containment, then fuzzy partial similarity against each source.
-6. `pipeline.render` writes numbered Markdown steps and a command count table.
+6. `pipeline.render` writes a titled Markdown guide with numbered steps, code
+   examples, OCR review notes, and a command verification summary.
 
 Verification means only that a command resembles text captured in the speech or
 on screen; it does not prove the command is correct or safe. Speech recognition

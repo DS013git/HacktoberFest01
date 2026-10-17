@@ -3,24 +3,24 @@ extract:
   frame_interval_seconds: 2
   output_dir: outputs
 dedupe:
-  difference_threshold: 8.0
+  difference_threshold: 3.0
 transcribe:
   model: base
   compute_type: int8
   device: cpu
   language: en
 ocr:
-  tesseract_cmd: ""
+  tesseract_cmd: "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
 align:
-  window_seconds: 45
+  window_seconds: 30
 verify:
   fuzzy_threshold: 90
 llm:
   base_url: "http://localhost:11434/v1"
-  model: "qwen2.5:3b"
+  model: "gemma4:cloud"
   api_key_env: SCREEN2TUTORIAL_API_KEY
-  api_key: ""
+  api_key: "ollama"
   temperature: 0.2
-  offline_mock: true
+  offline_mock: false
 cache:
   enabled: true

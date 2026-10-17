@@ -4,6 +4,7 @@ __pycache__/
 .venv/
 venv/
 outputs/
+.tmp/
 *.mp4
 *.mov
 *.mkv

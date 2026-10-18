@@ -25,6 +25,7 @@ from pipeline.write import CodeBlock, Step, step_to_json, write_step
 
 LOGGER = logging.getLogger("screen2tutorial")
 WRITE_SCHEMA_VERSION = 2
+VERIFY_SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -70,6 +71,17 @@ def _file_sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _neighboring_evidence(windows: list[Window]) -> list[tuple[str, str]]:
+    """Combine each window's transcript and OCR with its immediate neighbors."""
+    evidence = []
+    for index in range(len(windows)):
+        neighborhood = windows[max(0, index - 1):index + 2]
+        transcript = "\n".join(window.transcript for window in neighborhood)
+        screen_text = "\n".join(window.screen_text for window in neighborhood)
+        evidence.append((transcript, screen_text))
+    return evidence
 
 
 def _read_cache(cache_path: Path, signature: str, enabled: bool) -> Any | None:
@@ -244,16 +256,22 @@ def run_pipeline(
     ]
 
     report("Verifying commands")
-    verify_signature = _signature([steps_data, [window.transcript for window in windows], [window.screen_text for window in windows], config.get("verify", {})])
+    verification_evidence = _neighboring_evidence(windows)
+    verify_signature = _signature([
+        VERIFY_SCHEMA_VERSION,
+        steps_data,
+        verification_evidence,
+        config.get("verify", {}),
+    ])
     verify_cache = job_dir / "verify.json"
     verify_value = _read_cache(verify_cache, verify_signature, cache_enabled)
 
     def do_verify() -> list[list[dict[str, str]]]:
-        """Verify each step's commands against its corresponding evidence."""
+        """Verify each step against the evidence in its adjacent windows."""
         return [[{"command": item.command, "status": item.status} for item in verify_commands(
-            step, window.transcript, window.screen_text,
+            step, transcript, screen_text,
             int(config.get("verify", {}).get("fuzzy_threshold", 90)),
-        )] for step, window in zip(steps, windows)]
+        )] for step, (transcript, screen_text) in zip(steps, verification_evidence)]
 
     checks_data = verify_value if verify_value is not None else _timed("verify", do_verify, timings)
     if verify_value is not None:

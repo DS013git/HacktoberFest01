@@ -26,11 +26,13 @@ def normalize_text(text: str) -> str:
 
 
 def _matches(command: str, source: str, threshold: int) -> bool:
-    """Test normalized exact containment, then fuzzy partial similarity."""
+    """Match short commands as whole words; otherwise allow exact or fuzzy matches."""
     needle = normalize_text(command)
     haystack = normalize_text(source)
     if not needle or not haystack:
         return False
+    if len(needle) <= 3:
+        return re.search(rf"\b{re.escape(needle)}\b", haystack) is not None
     return needle in haystack or partial_ratio(needle, haystack) >= threshold
 
 

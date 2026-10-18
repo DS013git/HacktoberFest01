@@ -1,6 +1,7 @@
 """Tests for writing, verification, and rendering stages."""
 
 from pipeline.align import Window
+from pipeline.run import _neighboring_evidence
 from pipeline.render import render_markdown
 from pipeline.verify import verify_commands
 from pipeline.write import CodeBlock, Step, _keep_screen_supported_code, _validate_step, write_step
@@ -27,6 +28,33 @@ def test_command_provenance_and_hallucination() -> None:
     assert results[0].status == "verified_speech"
     assert results[1].status == "verified_screen"
     assert results[2].status == "unverified"
+
+
+def test_command_is_verified_from_next_window_evidence() -> None:
+    """A command may use evidence from the immediately following window."""
+    windows = [
+        Window(0, 30, "Preparing the environment", ""),
+        Window(30, 60, "Run docker compose up", "docker compose up"),
+    ]
+    transcript, screen_text = _neighboring_evidence(windows)[0]
+
+    result = verify_commands(Step("Start services", "", ["docker compose up"]), transcript, screen_text)
+
+    assert result[0].status == "verified_both"
+
+
+def test_short_command_requires_whole_word_match() -> None:
+    """A short command must not match as a substring inside another word."""
+    result = verify_commands(Step("List files", "", ["ls"]), "also", "")
+
+    assert result[0].status == "unverified"
+
+
+def test_made_up_command_remains_unverified() -> None:
+    """A command with no transcript or screen evidence remains unverified."""
+    result = verify_commands(Step("Install package", "", ["invented-tool --xyz"]), "", "")
+
+    assert result[0].status == "unverified"
 
 
 def test_exact_fuzzy_and_both_evidence_matches() -> None:
